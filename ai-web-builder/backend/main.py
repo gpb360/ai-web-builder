@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import components, auth, projects, platform
+from api.routes import components, auth, projects, platform, ai
 import os
 from dotenv import load_dotenv
 
@@ -26,6 +26,7 @@ app.include_router(components.router, prefix="/api/components", tags=["component
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(platform.router, prefix="/api/platform", tags=["platform"])
+app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 
 @app.get("/")
 async def root():

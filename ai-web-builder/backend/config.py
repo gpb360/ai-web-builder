@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # AI Services
     openai_api_key: str
     anthropic_api_key: str
+    deepseek_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     
     # AI Cost Management
     openai_cost_limit_daily: float = 100.0
