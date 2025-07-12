@@ -1,0 +1,4 @@
+packages:
+  - 'frontend'
+  - 'shared'
+  - 'backend' # For any Node.js tools/scripts in backend
