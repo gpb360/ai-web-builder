@@ -44,7 +44,7 @@ class AIRouter:
     
     def select_model(self, request: AIRequest) -> ModelSelection:
         """
-        Select the optimal AI model for a given request
+        Select the optimal AI model for a given request with intelligent optimization
         
         Args:
             request: AI request with task details
@@ -52,43 +52,51 @@ class AIRouter:
         Returns:
             ModelSelection with chosen model and rationale
         """
-        logger.info(f"Selecting model for task: {request.task_type}, complexity: {request.complexity}")
+        logger.info(f"Selecting model for task: {request.task_type}, complexity: {request.complexity}, tier: {request.user_tier}")
+        
+        # Apply smart optimizations based on request patterns
+        optimized_request = self._apply_smart_optimizations(request)
         
         # Get candidate models based on task requirements
-        candidates = self._get_candidate_models(request)
+        candidates = self._get_candidate_models(optimized_request)
         
-        # Score each candidate model
+        # Apply load balancing if multiple similar-scoring models exist
         scored_models = []
         for model in candidates:
-            score = self._score_model(model, request)
-            scored_models.append((model, score))
+            score = self._score_model(model, optimized_request)
+            # Apply load balancing factor
+            load_factor = self._get_load_balancing_factor(model)
+            adjusted_score = score * load_factor
+            scored_models.append((model, adjusted_score, score))
         
-        # Sort by score (descending)
+        # Sort by adjusted score (descending)
         scored_models.sort(key=lambda x: x[1], reverse=True)
         
         if not scored_models:
-            # Fallback to Claude Sonnet if no candidates
-            logger.warning("No suitable models found, falling back to Claude Sonnet")
+            # Smart fallback selection based on user tier
+            fallback_model = self._get_smart_fallback(optimized_request)
+            logger.warning(f"No suitable models found, falling back to {fallback_model.value}")
             return ModelSelection(
-                model=ModelType.CLAUDE_SONNET,
+                model=fallback_model,
                 confidence=0.5,
-                reason="Fallback selection - no optimal candidates found",
-                estimated_cost=self._estimate_cost(ModelType.CLAUDE_SONNET, request),
-                fallbacks=[ModelType.GPT4_TURBO]
+                reason="Smart fallback selection - no optimal candidates found",
+                estimated_cost=self._estimate_cost(fallback_model, optimized_request),
+                fallbacks=[ModelType.DEEPSEEK_V3]
             )
         
         # Select the best model
-        best_model, best_score = scored_models[0]
-        fallbacks = [model for model, _ in scored_models[1:3]]  # Top 2 alternatives
+        best_model, adjusted_score, original_score = scored_models[0]
+        fallbacks = [model for model, _, _ in scored_models[1:3]]  # Top 2 alternatives
         
-        # Calculate confidence based on score difference
-        confidence = min(best_score, 1.0)
+        # Calculate confidence with load balancing consideration
+        confidence = min(original_score / 100.0, 1.0)
         if len(scored_models) > 1:
-            second_best_score = scored_models[1][1]
-            confidence = min(confidence, best_score / max(second_best_score, 0.1))
+            second_best_score = scored_models[1][2]  # Use original score for confidence
+            score_gap = (original_score - second_best_score) / 100.0
+            confidence = min(confidence, 0.5 + score_gap)
         
-        estimated_cost = self._estimate_cost(best_model, request)
-        reason = self._explain_selection(best_model, request, best_score)
+        estimated_cost = self._estimate_cost(best_model, optimized_request)
+        reason = self._explain_selection(best_model, optimized_request, original_score)
         
         selection = ModelSelection(
             model=best_model,
@@ -99,7 +107,7 @@ class AIRouter:
         )
         
         # Log selection for future optimization
-        self._log_selection(request, selection)
+        self._log_selection(optimized_request, selection)
         
         return selection
     
@@ -379,3 +387,133 @@ class AIRouter:
             cost_analysis[model] = self._estimate_cost(model, mock_request)
         
         return cost_analysis
+    
+    def _apply_smart_optimizations(self, request: AIRequest) -> AIRequest:
+        """Apply intelligent optimizations to the request based on patterns"""
+        optimized_request = AIRequest(
+            task_type=request.task_type,
+            complexity=request.complexity,
+            content=request.content,
+            user_tier=request.user_tier,
+            max_cost=request.max_cost,
+            requires_vision=request.requires_vision,
+            context_length=request.context_length
+        )
+        
+        # Smart complexity adjustment based on content analysis
+        content_length = len(request.content)
+        
+        # Reduce complexity for very short requests (likely simple tasks)
+        if content_length < 50 and request.complexity > 3:
+            optimized_request.complexity = max(2, request.complexity - 1)
+            logger.info(f"Reduced complexity from {request.complexity} to {optimized_request.complexity} for short content")
+        
+        # Increase complexity for very long, detailed requests
+        elif content_length > 2000 and request.complexity < 6:
+            optimized_request.complexity = min(8, request.complexity + 1)
+            logger.info(f"Increased complexity from {request.complexity} to {optimized_request.complexity} for detailed content")
+        
+        # Smart task type optimization based on content patterns
+        content_lower = request.content.lower()
+        
+        # Detect if this is actually a code-related task
+        code_indicators = ['component', 'function', 'react', 'javascript', 'typescript', 'css', 'html', 'api']
+        if any(indicator in content_lower for indicator in code_indicators):
+            if request.task_type in ['content_writing', 'analysis']:
+                optimized_request.task_type = 'code_generation'
+                logger.info(f"Optimized task type from {request.task_type} to code_generation")
+        
+        # Detect analysis requests masquerading as content writing
+        analysis_indicators = ['analyze', 'review', 'compare', 'evaluate', 'assess', 'audit']
+        if any(indicator in content_lower for indicator in analysis_indicators):
+            if request.task_type == 'content_writing':
+                optimized_request.task_type = 'analysis'
+                logger.info(f"Optimized task type from {request.task_type} to analysis")
+        
+        return optimized_request
+    
+    def _get_load_balancing_factor(self, model: ModelType) -> float:
+        """Get load balancing factor to distribute load across similar models"""
+        # Simple load balancing based on recent usage
+        recent_selections = [
+            entry for entry in self.selection_history[-100:]  # Last 100 selections
+            if entry["selected_model"] == model.value
+        ]
+        
+        usage_count = len(recent_selections)
+        
+        # Apply gentle load balancing - reduce score if heavily used recently
+        if usage_count > 20:  # More than 20% of recent selections
+            return 0.9  # Slight penalty
+        elif usage_count > 30:  # More than 30% of recent selections
+            return 0.8  # Moderate penalty
+        elif usage_count > 40:  # More than 40% of recent selections
+            return 0.7  # Higher penalty to encourage diversity
+        else:
+            return 1.0  # No penalty
+    
+    def _get_smart_fallback(self, request: AIRequest) -> ModelType:
+        """Get intelligent fallback model based on user tier and request"""
+        tier_fallbacks = {
+            UserTier.FREE.value: ModelType.DEEPSEEK_V3,
+            UserTier.CREATOR.value: ModelType.GEMINI_FLASH,
+            UserTier.BUSINESS.value: ModelType.GEMINI_PRO,
+            UserTier.AGENCY.value: ModelType.CLAUDE_SONNET
+        }
+        
+        preferred_fallback = tier_fallbacks.get(request.user_tier, ModelType.DEEPSEEK_V3)
+        
+        # Additional logic for vision requirements
+        if request.requires_vision:
+            return ModelType.GPT4_VISION
+        
+        # For high complexity, ensure fallback can handle it
+        if request.complexity > 7:
+            high_complexity_models = [ModelType.CLAUDE_SONNET, ModelType.GPT4_TURBO]
+            if preferred_fallback not in high_complexity_models:
+                return ModelType.CLAUDE_SONNET
+        
+        return preferred_fallback
+    
+    def get_selection_analytics(self) -> Dict[str, Any]:
+        """Get analytics on model selection patterns"""
+        if not self.selection_history:
+            return {"message": "No selection history available"}
+        
+        recent_selections = self.selection_history[-100:]  # Last 100 selections
+        
+        # Model distribution
+        model_counts = {}
+        task_type_counts = {}
+        user_tier_counts = {}
+        
+        for selection in recent_selections:
+            model = selection["selected_model"]
+            task = selection["task_type"]
+            tier = selection["user_tier"]
+            
+            model_counts[model] = model_counts.get(model, 0) + 1
+            task_type_counts[task] = task_type_counts.get(task, 0) + 1
+            user_tier_counts[tier] = user_tier_counts.get(tier, 0) + 1
+        
+        # Cost analysis
+        total_estimated_cost = sum(s["estimated_cost"] for s in recent_selections)
+        avg_cost = total_estimated_cost / len(recent_selections) if recent_selections else 0
+        
+        # Confidence analysis
+        avg_confidence = sum(s["confidence"] for s in recent_selections) / len(recent_selections) if recent_selections else 0
+        
+        return {
+            "total_selections": len(recent_selections),
+            "model_distribution": model_counts,
+            "task_type_distribution": task_type_counts,
+            "user_tier_distribution": user_tier_counts,
+            "avg_estimated_cost": avg_cost,
+            "total_estimated_cost": total_estimated_cost,
+            "avg_confidence": avg_confidence,
+            "cost_efficiency": {
+                "most_used_model": max(model_counts.items(), key=lambda x: x[1])[0] if model_counts else None,
+                "highest_avg_cost": max(MODEL_COSTS.items(), key=lambda x: x[1].output_cost)[0].value,
+                "lowest_avg_cost": min(MODEL_COSTS.items(), key=lambda x: x[1].output_cost)[0].value
+            }
+        }
