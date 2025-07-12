@@ -192,12 +192,29 @@ class AIService:
     
     async def _process_with_gemini(self, request: AIRequest, model_name: str) -> AIResponse:
         """Process request with Google Gemini"""
-        # Placeholder for Gemini implementation
-        logger.info(f"Gemini processing not yet implemented, using mock response")
-        return await self._process_mock_response(
-            ModelType.GEMINI_FLASH if "flash" in model_name else ModelType.GEMINI_PRO,
-            request
-        )
+        from .clients.gemini import GeminiClient
+        
+        async with GeminiClient() as client:
+            # Adjust temperature based on task type and complexity
+            temperature = 0.3 if request.task_type in ["code_generation", "component_generation"] else 0.7
+            if request.complexity <= 3:
+                temperature *= 0.8  # Lower temperature for simple tasks
+            
+            # Set appropriate max tokens based on task
+            max_tokens = None
+            if request.task_type == "summarization":
+                max_tokens = 1000  # Shorter outputs for summaries
+            elif request.task_type in ["code_generation", "component_generation"]:
+                max_tokens = 4000  # Longer outputs for code
+            
+            response = await client.generate_completion(
+                request,
+                model_variant=model_name,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            return response
     
     async def _process_with_claude(self, request: AIRequest) -> AIResponse:
         """Process request with Claude Sonnet"""
