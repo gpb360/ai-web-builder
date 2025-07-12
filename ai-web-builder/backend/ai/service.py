@@ -9,6 +9,7 @@ from dataclasses import asdict
 
 from .router import AIRouter, ModelSelection
 from .models import AIRequest, AIResponse, ModelType, TaskType
+from .cost_tracker import CostTracker, CostAlert, BudgetStatus
 from database.models import User, AIUsage
 from database.connection import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ class AIService:
         self.db = db
         self.redis = redis_client
         self.router = AIRouter()
+        self.cost_tracker = CostTracker(db, redis_client)
         self.client_cache = {}  # Cache for AI clients
     
     async def process_request(
@@ -48,30 +50,43 @@ class AIService:
         start_time = datetime.utcnow()
         
         try:
-            # Validate user's budget if requested
-            if validate_budget:
-                await self._validate_user_budget(user, request)
-            
             # Select optimal model
             selection = self.router.select_model(request)
             logger.info(f"Selected model {selection.model.value} for user {user.id}: {selection.reason}")
             
-            # Check if estimated cost exceeds user's remaining budget
+            # Check budget before proceeding if validation enabled
             if validate_budget:
-                remaining_budget = await self._get_remaining_budget(user)
-                if selection.estimated_cost > remaining_budget:
+                budget_check = await self.cost_tracker.check_request_budget(user, selection.estimated_cost)
+                if not budget_check['can_proceed']:
                     # Try with a cheaper model
-                    cheaper_selection = await self._select_cheaper_model(request, remaining_budget)
+                    cheaper_selection = await self._select_cheaper_model(request, budget_check['remaining_budget'])
                     if cheaper_selection:
                         selection = cheaper_selection
                     else:
-                        raise ValueError(f"Insufficient budget. Need ${selection.estimated_cost:.4f}, have ${remaining_budget:.4f}")
+                        raise ValueError(
+                            f"Insufficient budget. Need ${selection.estimated_cost:.4f}, "
+                            f"have ${budget_check['remaining_budget']:.4f} remaining"
+                        )
             
             # Process with selected model
             response = await self._process_with_model(selection.model, request)
             
-            # Track usage and costs
-            await self._track_usage(user, request, response, selection)
+            # Track usage and costs with real-time monitoring
+            alert = await self.cost_tracker.track_request_cost(
+                user, 
+                request, 
+                response, 
+                {
+                    'selection_confidence': selection.confidence,
+                    'selection_reason': selection.reason,
+                    'fallbacks': [m.value for m in selection.fallbacks]
+                }
+            )
+            
+            # Handle cost alerts
+            if alert:
+                logger.warning(f"Cost alert for user {user.id}: {alert.message}")
+                # In production, you might send notifications here
             
             # Update router performance metrics
             processing_time = (datetime.utcnow() - start_time).total_seconds()
