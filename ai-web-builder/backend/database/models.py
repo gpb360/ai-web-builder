@@ -36,6 +36,7 @@ class User(Base):
     # Relationships
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
     platform_integrations = relationship("PlatformIntegration", back_populates="user", cascade="all, delete-orphan")
+    ai_usage = relationship("AIUsage", back_populates="user", cascade="all, delete-orphan")
     ai_generations = relationship("AIGeneration", back_populates="user", cascade="all, delete-orphan")
     usage_records = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
     component_library = relationship("ComponentLibraryItem", back_populates="user", cascade="all, delete-orphan")
@@ -392,4 +393,43 @@ class JobQueue(Base):
             status.in_(['pending', 'processing', 'completed', 'failed', 'retrying']),
             name='check_job_status'
         ),
+    )
+
+class AIUsage(Base):
+    __tablename__ = "ai_usage"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    model_used = Column(String(50), nullable=False, index=True)
+    task_type = Column(String(50), nullable=False, index=True)
+    input_tokens = Column(Integer, nullable=False, default=0)
+    output_tokens = Column(Integer, nullable=False, default=0)
+    cost = Column(Numeric(10, 6), nullable=False, default=0)
+    processing_time = Column(Float)  # Processing time in seconds
+    quality_score = Column(Float)  # AI output quality score (0-1)
+    user_tier = Column(String(50), nullable=False, index=True)
+    metadata = Column(JSONB, nullable=False, default={})  # Additional tracking data
+    created_at = Column(DateTime(timezone=True), nullable=False, default=func.now(), index=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="ai_usage")
+    
+    __table_args__ = (
+        CheckConstraint(
+            model_used.in_(['deepseek-v3', 'gemini-1.5-flash', 'gemini-1.5-pro', 'claude-3.5-sonnet', 'gpt-4-turbo', 'gpt-4-vision']),
+            name='check_ai_model'
+        ),
+        CheckConstraint(
+            task_type.in_(['code_generation', 'content_writing', 'analysis', 'optimization', 'translation', 'summarization', 'component_generation', 'campaign_analysis', 'design_review']),
+            name='check_task_type'
+        ),
+        CheckConstraint(
+            user_tier.in_(['free', 'creator', 'business', 'agency']),
+            name='check_user_tier'
+        ),
+        CheckConstraint(cost >= 0, name='check_positive_cost'),
+        CheckConstraint(input_tokens >= 0, name='check_positive_input_tokens'),
+        CheckConstraint(output_tokens >= 0, name='check_positive_output_tokens'),
+        Index('idx_ai_usage_user_created', 'user_id', 'created_at'),
+        Index('idx_ai_usage_model_task', 'model_used', 'task_type'),
     )
