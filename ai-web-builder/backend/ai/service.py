@@ -150,11 +150,72 @@ class AIService:
     
     async def _process_with_model(self, model: ModelType, request: AIRequest) -> AIResponse:
         """Process request with specific AI model"""
-        # This is a placeholder - actual implementation would call specific AI APIs
-        # For now, return a mock response
-        
         logger.info(f"Processing with {model.value}: {request.task_type}")
         
+        try:
+            if model == ModelType.DEEPSEEK_V3:
+                return await self._process_with_deepseek(request)
+            elif model == ModelType.GEMINI_FLASH:
+                return await self._process_with_gemini(request, "gemini-1.5-flash")
+            elif model == ModelType.GEMINI_PRO:
+                return await self._process_with_gemini(request, "gemini-1.5-pro") 
+            elif model == ModelType.CLAUDE_SONNET:
+                return await self._process_with_claude(request)
+            elif model == ModelType.GPT4_TURBO:
+                return await self._process_with_openai(request, "gpt-4-turbo")
+            elif model == ModelType.GPT4_VISION:
+                return await self._process_with_openai(request, "gpt-4-vision-preview")
+            else:
+                # Fallback to mock response
+                return await self._process_mock_response(model, request)
+                
+        except Exception as e:
+            logger.error(f"Error processing with {model.value}: {e}")
+            # Return mock response as fallback during development
+            return await self._process_mock_response(model, request)
+    
+    async def _process_with_deepseek(self, request: AIRequest) -> AIResponse:
+        """Process request with DeepSeek V3"""
+        from .clients.deepseek import DeepSeekClient
+        
+        async with DeepSeekClient() as client:
+            # Adjust temperature based on task type
+            temperature = 0.3 if request.task_type in ["code_generation", "component_generation"] else 0.7
+            
+            response = await client.generate_completion(
+                request,
+                temperature=temperature,
+                max_tokens=4000
+            )
+            
+            return response
+    
+    async def _process_with_gemini(self, request: AIRequest, model_name: str) -> AIResponse:
+        """Process request with Google Gemini"""
+        # Placeholder for Gemini implementation
+        logger.info(f"Gemini processing not yet implemented, using mock response")
+        return await self._process_mock_response(
+            ModelType.GEMINI_FLASH if "flash" in model_name else ModelType.GEMINI_PRO,
+            request
+        )
+    
+    async def _process_with_claude(self, request: AIRequest) -> AIResponse:
+        """Process request with Claude Sonnet"""
+        # Placeholder for Claude implementation
+        logger.info(f"Claude processing not yet implemented, using mock response")
+        return await self._process_mock_response(ModelType.CLAUDE_SONNET, request)
+    
+    async def _process_with_openai(self, request: AIRequest, model_name: str) -> AIResponse:
+        """Process request with OpenAI models"""
+        # Placeholder for OpenAI implementation
+        logger.info(f"OpenAI processing not yet implemented, using mock response")
+        return await self._process_mock_response(
+            ModelType.GPT4_VISION if "vision" in model_name else ModelType.GPT4_TURBO,
+            request
+        )
+    
+    async def _process_mock_response(self, model: ModelType, request: AIRequest) -> AIResponse:
+        """Generate mock response for development/fallback"""
         # Simulate processing time based on model
         processing_times = {
             ModelType.DEEPSEEK_V3: 2.0,
