@@ -3,13 +3,18 @@ AI Service - Main interface for AI operations with cost tracking
 """
 import logging
 import asyncio
+import base64
+import io
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from dataclasses import asdict
+from PIL import Image
 
 from .router import AIRouter, ModelSelection
 from .models import AIRequest, AIResponse, ModelType, TaskType
 from .cost_tracker import CostTracker, CostAlert, BudgetStatus
+from .quality_validator import AIQualityValidator, ValidationLevel, ValidationResult
+from .cache_manager import AICacheManager
 from database.models import User, AIUsage
 from database.connection import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +33,8 @@ class AIService:
         self.redis = redis_client
         self.router = AIRouter()
         self.cost_tracker = CostTracker(db, redis_client)
+        self.quality_validator = AIQualityValidator(ValidationLevel.STANDARD)
+        self.cache_manager = AICacheManager(redis_client, db) if redis_client else None
         self.client_cache = {}  # Cache for AI clients
     
     async def process_request(
@@ -50,6 +57,13 @@ class AIService:
         start_time = datetime.utcnow()
         
         try:
+            # Check cache first if caching is enabled
+            if self.cache_manager:
+                cached_response = await self.cache_manager.get_cached_response(request, str(user.id))
+                if cached_response:
+                    logger.info(f"Returning cached response for user {user.id}: ${cached_response.cost:.4f} saved")
+                    return cached_response
+            
             # Select optimal model
             selection = self.router.select_model(request)
             logger.info(f"Selected model {selection.model.value} for user {user.id}: {selection.reason}")
@@ -92,6 +106,10 @@ class AIService:
             processing_time = (datetime.utcnow() - start_time).total_seconds()
             response.processing_time = processing_time
             self.router.update_performance_metrics(response)
+            
+            # Cache the response if caching is enabled and response is valid
+            if self.cache_manager and response.quality_score and response.quality_score > 0.7:
+                await self.cache_manager.cache_response(request, response, str(user.id))
             
             logger.info(f"AI request completed for user {user.id}: {response.model_used.value} cost=${response.cost:.4f}")
             return response
@@ -473,3 +491,485 @@ class AIService:
                 })
         
         return suggestions
+    
+    async def process_multimodal_request(
+        self,
+        user: User,
+        description: str,
+        component_type: str,
+        complexity: int,
+        image_data: Optional[bytes] = None,
+        image_filename: Optional[str] = None,
+        validate_budget: bool = True
+    ) -> AIResponse:
+        """
+        Process a multimodal AI request (text + optional image)
+        
+        Args:
+            user: User making the request
+            description: Text description of the component to generate
+            component_type: Type of component ('react', 'html', 'vue')
+            complexity: Complexity level (1-5)
+            image_data: Binary image data
+            image_filename: Original filename for metadata
+            validate_budget: Whether to check user's budget
+            
+        Returns:
+            AIResponse with generated component code
+        """
+        # Process image if provided
+        image_analysis = None
+        if image_data:
+            image_analysis = await self._analyze_image(image_data, image_filename)
+        
+        # Create enhanced prompt with image analysis
+        enhanced_content = self._create_multimodal_prompt(
+            description, component_type, complexity, image_analysis
+        )
+        
+        # Determine if vision model is needed
+        requires_vision = image_data is not None
+        
+        # Create AI request
+        request = AIRequest(
+            task_type=TaskType.COMPONENT_GENERATION,
+            complexity=complexity,
+            content=enhanced_content,
+            user_tier=user.subscription_tier,
+            requires_vision=requires_vision
+        )
+        
+        # Process the request
+        response = await self.process_request(user, request, validate_budget)
+        
+        # Validate the generated code quality if it's a component generation task
+        if request.task_type == TaskType.COMPONENT_GENERATION and response.content:
+            try:
+                validation_result = await self.quality_validator.validate_code(
+                    response.content, 
+                    component_type, 
+                    complexity
+                )
+                
+                # Store validation results in response metadata
+                if hasattr(response, 'metadata'):
+                    response.metadata.update({
+                        'quality_validation': {
+                            'is_valid': validation_result.is_valid,
+                            'quality_score': validation_result.quality_score.overall,
+                            'issues_count': len(validation_result.issues),
+                            'confidence': validation_result.confidence,
+                            'estimated_fix_time': validation_result.estimated_fix_time
+                        }
+                    })
+                else:
+                    response.metadata = {
+                        'quality_validation': {
+                            'is_valid': validation_result.is_valid,
+                            'quality_score': validation_result.quality_score.overall,
+                            'issues_count': len(validation_result.issues),
+                            'confidence': validation_result.confidence,
+                            'estimated_fix_time': validation_result.estimated_fix_time
+                        }
+                    }
+                
+                # Update quality score in response
+                if validation_result.confidence > 0.7:  # Only update if we're confident
+                    response.quality_score = validation_result.quality_score.overall / 100
+                
+                logger.info(f"Quality validation completed: {validation_result.quality_score.overall:.1f}% quality")
+                
+            except Exception as e:
+                logger.warning(f"Quality validation failed: {e}")
+                # Don't fail the entire request if validation fails
+        
+        return response
+    
+    async def _analyze_image(self, image_data: bytes, filename: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Analyze uploaded image for component generation context
+        
+        Args:
+            image_data: Binary image data
+            filename: Original filename
+            
+        Returns:
+            Dictionary with image analysis results
+        """
+        try:
+            # Convert to PIL Image for basic analysis
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Basic image properties
+            analysis = {
+                "width": image.width,
+                "height": image.height,
+                "format": image.format,
+                "mode": image.mode,
+                "filename": filename,
+                "size_kb": len(image_data) / 1024,
+                "aspect_ratio": round(image.width / image.height, 2),
+                "is_landscape": image.width > image.height,
+                "is_square": abs(image.width - image.height) < min(image.width, image.height) * 0.1
+            }
+            
+            # Convert to base64 for AI processing
+            analysis["base64"] = base64.b64encode(image_data).decode('utf-8')
+            
+            # Determine image characteristics for prompt enhancement
+            if analysis["aspect_ratio"] > 2:
+                analysis["layout_hint"] = "wide banner or header component"
+            elif analysis["aspect_ratio"] < 0.5:
+                analysis["layout_hint"] = "tall sidebar or mobile component"
+            elif analysis["is_square"]:
+                analysis["layout_hint"] = "square card or avatar component"
+            else:
+                analysis["layout_hint"] = "standard rectangular component"
+            
+            # Size recommendations
+            if analysis["width"] > 1200:
+                analysis["responsive_hint"] = "large desktop component, ensure mobile responsiveness"
+            elif analysis["width"] < 400:
+                analysis["responsive_hint"] = "mobile-first component"
+            else:
+                analysis["responsive_hint"] = "standard responsive component"
+            
+            logger.info(f"Image analyzed: {analysis['width']}x{analysis['height']}, {analysis['size_kb']:.1f}KB")
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Image analysis failed: {e}")
+            return {
+                "error": str(e),
+                "filename": filename,
+                "size_kb": len(image_data) / 1024 if image_data else 0,
+                "layout_hint": "standard component",
+                "responsive_hint": "responsive component"
+            }
+    
+    def _create_multimodal_prompt(
+        self,
+        description: str,
+        component_type: str,
+        complexity: int,
+        image_analysis: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Create enhanced prompt for multimodal component generation
+        
+        Args:
+            description: User's text description
+            component_type: Type of component to generate
+            complexity: Complexity level
+            image_analysis: Results from image analysis
+            
+        Returns:
+            Enhanced prompt string
+        """
+        prompt_parts = []
+        
+        # Base prompt
+        prompt_parts.append(f"""Create a {component_type.upper()} component based on the following requirements:
+
+Description: {description}
+Component Type: {component_type}
+Complexity Level: {complexity}/5""")
+        
+        # Add image context if available
+        if image_analysis and not image_analysis.get("error"):
+            prompt_parts.append(f"""
+
+VISUAL REFERENCE PROVIDED:
+- Image dimensions: {image_analysis.get('width', 'unknown')}x{image_analysis.get('height', 'unknown')}
+- Layout suggestion: {image_analysis.get('layout_hint', 'standard component')}
+- Responsive consideration: {image_analysis.get('responsive_hint', 'responsive component')}
+- Aspect ratio: {image_analysis.get('aspect_ratio', '1.0')}
+
+Please analyze the provided image and incorporate its visual elements, layout, color scheme, and design patterns into the generated component. Match the styling and structure as closely as possible while adapting it to {component_type} best practices.""")
+        
+        # Add complexity-specific requirements
+        complexity_requirements = {
+            1: "Keep it simple with basic HTML structure and minimal CSS",
+            2: "Add basic interactivity and hover effects",
+            3: "Include responsive design and form validation if applicable",
+            4: "Add advanced animations, state management, and error handling",
+            5: "Implement enterprise-level features, performance optimizations, and accessibility"
+        }
+        
+        prompt_parts.append(f"""
+
+COMPLEXITY REQUIREMENTS ({complexity}/5):
+{complexity_requirements.get(complexity, 'Standard complexity')}""")
+        
+        # Add framework-specific requirements
+        framework_requirements = {
+            "react": """
+REACT REQUIREMENTS:
+- Use TypeScript with proper type definitions
+- Include React hooks (useState, useEffect) as needed
+- Follow React best practices and naming conventions
+- Use functional components
+- Include proper prop interfaces
+- Add JSX comments for complex logic""",
+            "html": """
+HTML REQUIREMENTS:
+- Use semantic HTML5 elements
+- Include proper DOCTYPE and meta tags
+- Embed CSS in <style> section
+- Add JavaScript in <script> section if needed
+- Ensure cross-browser compatibility
+- Use proper accessibility attributes""",
+            "vue": """
+VUE REQUIREMENTS:
+- Use Vue 3 Composition API with <script setup>
+- Include TypeScript typing where appropriate
+- Use reactive references (ref, computed) as needed
+- Follow Vue naming conventions
+- Include proper template structure
+- Add scoped styles"""
+        }
+        
+        prompt_parts.append(framework_requirements.get(component_type, ""))
+        
+        # Add general requirements
+        prompt_parts.append("""
+
+GENERAL REQUIREMENTS:
+- Ensure the component is production-ready
+- Include responsive design for mobile, tablet, and desktop
+- Use modern CSS techniques (flexbox, grid, custom properties)
+- Add accessibility features (ARIA labels, keyboard navigation)
+- Include hover and focus states for interactive elements
+- Use consistent spacing and typography
+- Ensure proper contrast ratios for readability
+- Add loading states and error handling where appropriate
+
+OUTPUT FORMATTING:
+- Provide clean, well-formatted code
+- Include necessary imports and dependencies
+- Add brief comments for complex logic
+- Ensure code is copy-paste ready""")
+        
+        return "\n".join(prompt_parts)
+    
+    async def analyze_component_image(self, image_data: bytes) -> Dict[str, Any]:
+        """
+        Analyze an image of an existing component for replication
+        
+        Args:
+            image_data: Binary image data of component screenshot
+            
+        Returns:
+            Analysis results with component characteristics
+        """
+        try:
+            image_analysis = await self._analyze_image(image_data)
+            
+            # Enhanced analysis for component replication
+            analysis = {
+                **image_analysis,
+                "component_type": self._detect_component_type(image_analysis),
+                "suggested_complexity": self._suggest_complexity_from_image(image_analysis),
+                "color_palette": self._extract_color_hints(image_analysis),
+                "layout_elements": self._identify_layout_elements(image_analysis)
+            }
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Component image analysis failed: {e}")
+            return {"error": str(e)}
+    
+    def _detect_component_type(self, image_analysis: Dict[str, Any]) -> str:
+        """Detect likely component type from image characteristics"""
+        aspect_ratio = image_analysis.get("aspect_ratio", 1.0)
+        
+        if aspect_ratio > 3:
+            return "header or navigation component"
+        elif aspect_ratio < 0.3:
+            return "sidebar or vertical menu component"
+        elif 0.8 <= aspect_ratio <= 1.2:
+            return "card or modal component"
+        else:
+            return "general layout component"
+    
+    def _suggest_complexity_from_image(self, image_analysis: Dict[str, Any]) -> int:
+        """Suggest complexity level based on image characteristics"""
+        # This is a simplified heuristic - in production, you'd use actual image analysis
+        width = image_analysis.get("width", 400)
+        height = image_analysis.get("height", 300)
+        
+        # Larger images might indicate more complex components
+        pixel_count = width * height
+        
+        if pixel_count < 50000:  # Small images (< 223x223)
+            return 2
+        elif pixel_count < 200000:  # Medium images (< 447x447)
+            return 3
+        elif pixel_count < 500000:  # Large images (< 707x707)
+            return 4
+        else:
+            return 5
+    
+    def _extract_color_hints(self, image_analysis: Dict[str, Any]) -> Dict[str, str]:
+        """Extract color palette hints from image (simplified)"""
+        # In production, you'd analyze actual pixel data
+        return {
+            "primary": "#3B82F6",  # Default blue
+            "secondary": "#6B7280",  # Default gray
+            "accent": "#10B981",   # Default green
+            "background": "#FFFFFF",
+            "text": "#1F2937"
+        }
+    
+    def _identify_layout_elements(self, image_analysis: Dict[str, Any]) -> List[str]:
+        """Identify likely layout elements from image (simplified)"""
+        elements = ["container", "content"]
+        
+        aspect_ratio = image_analysis.get("aspect_ratio", 1.0)
+        
+        if aspect_ratio > 2:
+            elements.extend(["header", "navigation"])
+        elif aspect_ratio < 0.5:
+            elements.extend(["sidebar", "menu"])
+        else:
+            elements.extend(["card", "button", "text"])
+        
+        return elements
+    
+    async def get_cache_stats(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get cache performance statistics"""
+        if not self.cache_manager:
+            return {"error": "Caching not enabled"}
+        
+        try:
+            stats = await self.cache_manager.get_cache_stats(user_id)
+            return {
+                "cache_enabled": True,
+                "stats": {
+                    "total_requests": stats.total_requests,
+                    "cache_hits": stats.cache_hits,
+                    "cache_misses": stats.cache_misses,
+                    "hit_rate_percent": stats.hit_rate,
+                    "total_cost_saved": stats.total_cost_saved,
+                    "avg_response_time_ms": stats.avg_response_time * 1000,
+                    "storage_usage_mb": stats.storage_usage_mb
+                },
+                "cost_savings": {
+                    "total_saved": stats.total_cost_saved,
+                    "estimated_monthly_savings": stats.total_cost_saved * 30 / 7 if stats.total_requests > 0 else 0,
+                    "savings_per_request": stats.total_cost_saved / stats.total_requests if stats.total_requests > 0 else 0
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get cache stats: {e}")
+            return {"error": str(e)}
+    
+    async def optimize_cache(self) -> Dict[str, Any]:
+        """Optimize cache performance by removing old entries"""
+        if not self.cache_manager:
+            return {"error": "Caching not enabled"}
+        
+        try:
+            optimization_results = await self.cache_manager.optimize_cache()
+            return {
+                "success": True,
+                "optimization_results": optimization_results,
+                "message": f"Cache optimized: {optimization_results.get('removed_expired', 0)} expired entries removed"
+            }
+        except Exception as e:
+            logger.error(f"Cache optimization failed: {e}")
+            return {"error": str(e)}
+    
+    async def invalidate_user_cache(self, user_id: str) -> Dict[str, Any]:
+        """Invalidate all cache entries for a specific user"""
+        if not self.cache_manager:
+            return {"error": "Caching not enabled"}
+        
+        try:
+            invalidated_count = await self.cache_manager.invalidate_cache(user_id=user_id)
+            return {
+                "success": True,
+                "invalidated_entries": invalidated_count,
+                "message": f"Invalidated {invalidated_count} cache entries for user {user_id}"
+            }
+        except Exception as e:
+            logger.error(f"Cache invalidation failed for user {user_id}: {e}")
+            return {"error": str(e)}
+    
+    async def get_cache_efficiency_report(self, user: User, days: int = 30) -> Dict[str, Any]:
+        """Generate comprehensive cache efficiency report"""
+        try:
+            # Get cache stats
+            cache_stats = await self.get_cache_stats(str(user.id))
+            
+            # Get user's AI usage for comparison
+            analytics = await self.get_usage_analytics(user, days)
+            
+            # Calculate efficiency metrics
+            total_requests = analytics.get("total_requests", 0)
+            total_cost = analytics.get("total_cost", 0)
+            
+            if cache_stats.get("stats"):
+                cache_hit_rate = cache_stats["stats"]["hit_rate_percent"]
+                cost_saved = cache_stats["stats"]["total_cost_saved"]
+                
+                # Calculate what cost would have been without caching
+                estimated_cost_without_cache = total_cost + cost_saved
+                cost_efficiency = (cost_saved / estimated_cost_without_cache * 100) if estimated_cost_without_cache > 0 else 0
+                
+                return {
+                    "user_id": str(user.id),
+                    "period_days": days,
+                    "cache_performance": {
+                        "hit_rate_percent": cache_hit_rate,
+                        "cost_efficiency_percent": round(cost_efficiency, 2),
+                        "total_cost_saved": cost_saved,
+                        "estimated_without_cache": round(estimated_cost_without_cache, 4)
+                    },
+                    "usage_comparison": {
+                        "actual_cost": total_cost,
+                        "requests_served_from_cache": cache_stats["stats"]["cache_hits"],
+                        "requests_requiring_ai": cache_stats["stats"]["cache_misses"],
+                        "cache_to_ai_ratio": round(
+                            cache_stats["stats"]["cache_hits"] / max(cache_stats["stats"]["cache_misses"], 1), 2
+                        )
+                    },
+                    "recommendations": self._generate_cache_recommendations(cache_stats["stats"], total_requests)
+                }
+            else:
+                return {
+                    "user_id": str(user.id),
+                    "period_days": days,
+                    "cache_performance": {"message": "No cache data available"},
+                    "recommendations": ["Enable caching to reduce AI costs"]
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to generate cache efficiency report: {e}")
+            return {"error": str(e)}
+    
+    def _generate_cache_recommendations(self, cache_stats: Dict[str, Any], total_requests: int) -> List[str]:
+        """Generate cache optimization recommendations"""
+        recommendations = []
+        
+        hit_rate = cache_stats.get("hit_rate_percent", 0)
+        
+        if hit_rate < 30:
+            recommendations.append("Low cache hit rate - consider using more specific prompts for better cache matching")
+        elif hit_rate < 50:
+            recommendations.append("Moderate cache hit rate - review prompt patterns to increase reusability")
+        elif hit_rate > 80:
+            recommendations.append("Excellent cache performance - consider increasing cache TTL for popular components")
+        
+        storage_mb = cache_stats.get("storage_usage_mb", 0)
+        if storage_mb > 100:
+            recommendations.append("High cache storage usage - consider running cache optimization")
+        
+        if total_requests > 100 and hit_rate < 20:
+            recommendations.append("Many unique requests - consider using templates or component libraries")
+        
+        if not recommendations:
+            recommendations.append("Cache performance is good - continue current usage patterns")
+        
+        return recommendations
