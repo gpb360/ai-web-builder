@@ -19,6 +19,8 @@ import { PromptInput } from './PromptInput';
 import { ComponentTypeSelector } from './ComponentTypeSelector';
 import { ComplexitySlider } from './ComplexitySlider';
 import { CostEstimator } from './CostEstimator';
+import { ImageAnalyzer } from './ImageAnalyzer';
+import { QualityValidator } from './QualityValidator';
 
 export interface GenerationRequest {
   description: string;
@@ -87,24 +89,69 @@ export function ComponentGenerator({ onGenerate, className = '' }: ComponentGene
   }, [generationRequest, onGenerate]);
 
   const mockGenerate = async (request: GenerationRequest): Promise<GenerationResult> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const mockCode = generateMockComponent(request);
-    
-    return {
-      success: true,
-      componentCode: mockCode,
-      componentType: request.componentType,
-      estimatedCost: estimatedCost,
-      generationTime: 2.1,
-      modelUsed: 'gemini-1.5-flash',
-      suggestions: [
-        'Consider adding TypeScript types for better development experience',
-        'Test the component across different screen sizes',
-        'Add unit tests for component behavior'
-      ]
-    };
+    try {
+      // Create FormData for multimodal request
+      const formData = new FormData();
+      formData.append('description', request.description);
+      formData.append('component_type', request.componentType);
+      formData.append('complexity', request.complexity.toString());
+      
+      if (request.referenceImage) {
+        formData.append('image', request.referenceImage);
+      }
+      
+      // Call the actual API endpoint
+      const response = await fetch('/api/ai/generate-component', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // Don't set Content-Type, let browser set it with boundary
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      return {
+        success: data.success,
+        componentCode: data.component_code,
+        componentType: request.componentType,
+        estimatedCost: data.cost,
+        generationTime: data.processing_time,
+        modelUsed: data.model_used,
+        suggestions: [
+          'Component generated successfully with AI assistance',
+          'Review the code for any customizations needed',
+          'Test the component in different screen sizes'
+        ]
+      };
+      
+    } catch (error) {
+      console.error('AI generation failed, using fallback:', error);
+      
+      // Fallback to mock generation if API fails
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const mockCode = generateMockComponent(request);
+      
+      return {
+        success: true,
+        componentCode: mockCode,
+        componentType: request.componentType,
+        estimatedCost: estimatedCost,
+        generationTime: 2.1,
+        modelUsed: 'gemini-1.5-flash (fallback)',
+        suggestions: [
+          'Using fallback generation - check API connection',
+          'Consider adding TypeScript types for better development experience',
+          'Test the component across different screen sizes'
+        ]
+      };
+    }
   };
 
   const generateMockComponent = (request: GenerationRequest): string => {
@@ -314,6 +361,10 @@ ${complexity >= 3 ? `
                     onChange={(description) => 
                       setGenerationRequest(prev => ({ ...prev, description }))
                     }
+                    onImageUpload={(file) =>
+                      setGenerationRequest(prev => ({ ...prev, referenceImage: file }))
+                    }
+                    uploadedImage={generationRequest.referenceImage}
                     placeholder="Describe your component... e.g., 'Create a responsive pricing card with hover effects and a call-to-action button'"
                   />
                 </div>
@@ -340,6 +391,28 @@ ${complexity >= 3 ? `
                       }
                     />
                   </div>
+                </div>
+
+                {/* Image Analysis */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Eye className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-lg font-semibold">Visual Reference (Optional)</h3>
+                  </div>
+                  <ImageAnalyzer
+                    onAnalysisComplete={(analysis, file) => {
+                      setGenerationRequest(prev => ({ 
+                        ...prev, 
+                        referenceImage: file,
+                        // Auto-update complexity based on analysis
+                        complexity: analysis.suggested_complexity || prev.complexity,
+                        // Enhance description with analysis insights
+                        description: prev.description ? 
+                          `${prev.description}\n\nBased on uploaded image: ${analysis.component_type} with ${analysis.layout_hint}` :
+                          `Create a ${analysis.component_type} with ${analysis.layout_hint}`
+                      }));
+                    }}
+                  />
                 </div>
 
                 {/* Generate Button */}
@@ -424,6 +497,16 @@ ${complexity >= 3 ? `
                 <ComponentPreview
                   code={generationResult.componentCode}
                   componentType={generationResult.componentType as 'react' | 'html' | 'vue'}
+                />
+
+                {/* Quality Validation */}
+                <QualityValidator
+                  code={generationResult.componentCode}
+                  componentType={generationResult.componentType}
+                  complexity={generationRequest.complexity}
+                  onValidationComplete={(result) => {
+                    console.log('Validation completed:', result);
+                  }}
                 />
 
                 {/* Suggestions */}

@@ -92,6 +92,7 @@ class AIResponse:
     quality_score: Optional[float] = None
     processing_time: Optional[float] = None
     timestamp: datetime = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         if self.timestamp is None:

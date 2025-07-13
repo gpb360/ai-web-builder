@@ -27,8 +27,45 @@ export function CostEstimator({
   });
 
   useEffect(() => {
-    const calculateCost = () => {
-      // Simulate the backend cost calculation logic
+    const calculateCost = async () => {
+      try {
+        // Create FormData for cost estimation API
+        const formData = new FormData();
+        formData.append('description', description);
+        formData.append('component_type', componentType);
+        formData.append('complexity', complexity.toString());
+        formData.append('has_image', 'false'); // TODO: detect if image is present
+        
+        const response = await fetch('/api/ai/estimate-multimodal-cost', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const totalCost = data.cost_breakdown.total_cost;
+          const processingTime = parseFloat(data.processing_time_estimate);
+          
+          setEstimatedCost(totalCost);
+          setBreakdown({
+            inputTokens: Math.round(data.estimated_tokens.input),
+            outputTokens: Math.round(data.estimated_tokens.output),
+            processingTime: processingTime
+          });
+          
+          if (onCostUpdate) {
+            onCostUpdate(totalCost);
+          }
+          return;
+        }
+      } catch (error) {
+        console.error('Cost estimation API failed, using fallback:', error);
+      }
+      
+      // Fallback to local calculation if API fails
       const descriptionLength = description.length;
       const baseTokens = Math.max(descriptionLength * 1.5, 50); // Minimum 50 tokens
       
@@ -164,6 +201,10 @@ export function CostEstimator({
           <div className="flex justify-between items-center text-xs">
             <span className="text-gray-600">Traditional tools:</span>
             <span className="font-semibold text-red-500">${(competitorCost).toFixed(4)}</span>
+          </div>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-gray-600">Cache potential:</span>
+            <span className="font-semibold text-blue-600">Up to 90% off</span>
           </div>
           <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
             <span className="text-gray-600 font-medium">You save:</span>
