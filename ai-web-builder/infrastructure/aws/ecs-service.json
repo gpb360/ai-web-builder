@@ -1,0 +1,57 @@
+{
+  "serviceName": "ai-web-builder-backend",
+  "cluster": "ai-web-builder-cluster",
+  "taskDefinition": "ai-web-builder-backend",
+  "desiredCount": 2,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-PRIVATE_SUBNET_1",
+        "subnet-PRIVATE_SUBNET_2"
+      ],
+      "securityGroups": [
+        "sg-BACKEND_SECURITY_GROUP"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:ACCOUNT_ID:targetgroup/ai-web-builder-backend/TARGET_GROUP_ID",
+      "containerName": "ai-web-builder-backend",
+      "containerPort": 8000
+    }
+  ],
+  "serviceRegistries": [
+    {
+      "registryArn": "arn:aws:servicediscovery:us-east-1:ACCOUNT_ID:service/srv-SERVICE_ID",
+      "containerName": "ai-web-builder-backend",
+      "containerPort": 8000
+    }
+  ],
+  "enableExecuteCommand": true,
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 50,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Project",
+      "value": "ai-web-builder"
+    },
+    {
+      "key": "CostCenter",
+      "value": "engineering"
+    }
+  ]
+}
