@@ -71,10 +71,10 @@ export function PromptInput({
         className={`
           relative border-2 rounded-xl transition-all duration-200
           ${isFocused 
-            ? 'border-blue-500 bg-blue-50/50' 
-            : 'border-gray-200 bg-gray-50/50 hover:border-gray-300'
+            ? 'border-primary bg-primary/5' 
+            : 'border-gray-700 bg-background-secondary hover:border-gray-600'
           }
-          ${isDragging ? 'border-blue-500 bg-blue-50' : ''}
+          ${isDragging ? 'border-primary bg-primary/10' : ''}
         `}
         onDragOver={(e) => {
           e.preventDefault();
@@ -93,7 +93,7 @@ export function PromptInput({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          className="w-full p-4 bg-transparent border-none outline-none resize-none min-h-[120px] text-gray-800 placeholder-gray-500"
+          className="w-full p-4 bg-transparent border-none outline-none resize-none min-h-[120px] text-white placeholder-gray-400 font-mono"
           maxLength={maxCharacters}
         />
 
@@ -144,12 +144,14 @@ export function PromptInput({
               {(uploadedImage.size / 1024).toFixed(1)} KB
             </p>
           </div>
-          <button
+          <motion.button
             onClick={removeImage}
             className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
           >
             <X className="w-4 h-4" />
-          </button>
+          </motion.button>
         </motion.div>
       )}
 

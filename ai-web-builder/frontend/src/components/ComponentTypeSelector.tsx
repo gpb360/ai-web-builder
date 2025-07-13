@@ -40,8 +40,8 @@ export function ComponentTypeSelector({ value, onChange, className = '' }: Compo
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <h4 className="text-sm font-semibold text-gray-800 mb-2">Component Type</h4>
-        <p className="text-xs text-gray-500">Choose your preferred framework or technology</p>
+        <h4 className="text-sm font-semibold text-white mb-2 font-mono">Component Type</h4>
+        <p className="text-xs text-gray-400">Choose your preferred framework or technology</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -115,23 +115,23 @@ export function ComponentTypeSelector({ value, onChange, className = '' }: Compo
       </div>
 
       {/* Additional Info */}
-      <div className="bg-gray-50 rounded-lg p-3">
-        <h5 className="text-sm font-medium text-gray-700 mb-2">What you'll get:</h5>
-        <ul className="text-xs text-gray-600 space-y-1">
+      <div className="card border-primary/20 bg-primary/5 p-3">
+        <h5 className="text-sm font-medium text-white mb-2 font-mono">What you&apos;ll get:</h5>
+        <ul className="text-xs text-gray-400 space-y-1">
           <li className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-gray-400 rounded-full" />
+            <span className="w-1 h-1 bg-primary rounded-full" />
             Production-ready code with best practices
           </li>
           <li className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-gray-400 rounded-full" />
+            <span className="w-1 h-1 bg-primary rounded-full" />
             Responsive design and mobile optimization
           </li>
           <li className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-gray-400 rounded-full" />
+            <span className="w-1 h-1 bg-primary rounded-full" />
             Accessibility features built-in
           </li>
           <li className="flex items-center gap-2">
-            <span className="w-1 h-1 bg-gray-400 rounded-full" />
+            <span className="w-1 h-1 bg-primary rounded-full" />
             Modern styling and animations
           </li>
         </ul>

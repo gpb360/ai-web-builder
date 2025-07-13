@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Editor } from '@monaco-editor/react';
-import { Eye, Code, Copy, Download, ExternalLink, Settings } from 'lucide-react';
+import { Eye, Code, Copy, Download } from 'lucide-react';
 
 interface ComponentPreviewProps {
   code: string;

@@ -4,11 +4,9 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Wand2, 
-  Upload, 
   Code, 
   Eye, 
   Copy, 
-  Download,
   Sparkles,
   Zap,
   Settings,
@@ -61,7 +59,7 @@ export function ComponentGenerator({ onGenerate, className = '' }: ComponentGene
     }
   });
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [, setIsGenerating] = useState(false);
   const [estimatedCost, setEstimatedCost] = useState<number>(0);
 
   const handleGenerate = useCallback(async () => {
@@ -86,7 +84,7 @@ export function ComponentGenerator({ onGenerate, className = '' }: ComponentGene
     } finally {
       setIsGenerating(false);
     }
-  }, [generationRequest, onGenerate]);
+  }, [generationRequest, onGenerate, estimatedCost]);
 
   const mockGenerate = async (request: GenerationRequest): Promise<GenerationResult> => {
     try {
@@ -318,23 +316,71 @@ ${complexity >= 3 ? `
 
   return (
     <div className={`max-w-7xl mx-auto p-6 ${className}`}>
-      {/* Header */}
-      <div className="text-center mb-8">
+      {/* Hero Section */}
+      <div className="text-center mb-16">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-center gap-3 mb-4"
+          className="flex items-center justify-center gap-4 mb-6"
         >
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+          <motion.div 
+            className="w-16 h-16 gradient-bg-cyber rounded-2xl flex items-center justify-center animate-float hover-glow"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          >
             <Wand2 className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            AI Component Generator
+          </motion.div>
+          <h1 className="text-5xl font-bold gradient-text-cyber font-mono">
+            AI Web Builder
           </h1>
         </motion.div>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Describe your component in plain English and watch as AI creates production-ready code
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="max-w-3xl mx-auto mb-8"
+        >
+          <p className="text-2xl text-gray-300 leading-relaxed mb-4">
+            Build production-ready components with
+            <span className="gradient-text font-semibold"> AI precision</span>
+          </p>
+          <p className="text-lg text-gray-400">
+            Describe your vision in plain English and watch as our AI crafts pixel-perfect, responsive components that are ready for production deployment.
+          </p>
+        </motion.div>
+        
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto mb-12"
+        >
+          <motion.div 
+            className="text-center card hover-lift border-green-500/20 bg-green-500/5"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <div className="text-3xl font-bold gradient-text-cyber font-mono mb-2">98%</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Cost Reduction</div>
+          </motion.div>
+          <motion.div 
+            className="text-center card hover-lift border-blue-500/20 bg-blue-500/5"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          >
+            <div className="text-3xl font-bold gradient-text-aurora font-mono mb-2">&lt;2s</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Generation Time</div>
+          </motion.div>
+          <motion.div 
+            className="text-center card hover-lift border-purple-500/20 bg-purple-500/5"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.2 }}
+          >
+            <div className="text-3xl font-bold gradient-text font-mono mb-2">100%</div>
+            <div className="text-sm text-gray-400 uppercase tracking-wide">Production Ready</div>
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Main Interface */}
@@ -351,10 +397,20 @@ ${complexity >= 3 ? `
                 className="space-y-6"
               >
                 {/* Description Input */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <motion.div 
+                  className="card hover-lift gradient-border"
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
                   <div className="flex items-center gap-3 mb-4">
-                    <Sparkles className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-lg font-semibold">Component Description</h3>
+                    <motion.div
+                      className="w-8 h-8 gradient-bg-cyber rounded-lg flex items-center justify-center"
+                      whileHover={{ rotate: 180 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Sparkles className="w-4 h-4 text-white" />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-white">Component Description</h3>
                   </div>
                   <PromptInput
                     value={generationRequest.description}
@@ -367,13 +423,23 @@ ${complexity >= 3 ? `
                     uploadedImage={generationRequest.referenceImage}
                     placeholder="Describe your component... e.g., 'Create a responsive pricing card with hover effects and a call-to-action button'"
                   />
-                </div>
+                </motion.div>
 
                 {/* Configuration Panel */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <motion.div 
+                  className="card hover-lift gradient-border"
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
                   <div className="flex items-center gap-3 mb-6">
-                    <Settings className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-lg font-semibold">Configuration</h3>
+                    <motion.div
+                      className="w-8 h-8 gradient-bg-tech rounded-lg flex items-center justify-center"
+                      whileHover={{ rotate: 180 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Settings className="w-4 h-4 text-white" />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-white">Configuration</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -391,13 +457,23 @@ ${complexity >= 3 ? `
                       }
                     />
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Image Analysis */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <motion.div 
+                  className="card hover-lift gradient-border"
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
                   <div className="flex items-center gap-3 mb-6">
-                    <Eye className="w-5 h-5 text-blue-500" />
-                    <h3 className="text-lg font-semibold">Visual Reference (Optional)</h3>
+                    <motion.div
+                      className="w-8 h-8 gradient-bg-aurora rounded-lg flex items-center justify-center"
+                      whileHover={{ rotate: 180 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Eye className="w-4 h-4 text-white" />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-white">Visual Reference (Optional)</h3>
                   </div>
                   <ImageAnalyzer
                     onAnalysisComplete={(analysis, file) => {
@@ -413,7 +489,7 @@ ${complexity >= 3 ? `
                       }));
                     }}
                   />
-                </div>
+                </motion.div>
 
                 {/* Generate Button */}
                 <motion.button
@@ -421,9 +497,20 @@ ${complexity >= 3 ? `
                   whileTap={{ scale: 0.98 }}
                   onClick={handleGenerate}
                   disabled={!generationRequest.description.trim()}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 px-8 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
+                  className="w-full py-4 px-8 text-lg font-semibold flex items-center justify-center gap-3 rounded-xl text-white font-mono uppercase tracking-wide shadow-lg hover:shadow-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: generationRequest.description.trim() 
+                      ? 'var(--gradient-cyber)' 
+                      : 'var(--background-tertiary)',
+                    backgroundSize: '200% 200%'
+                  }}
                 >
-                  <Zap className="w-6 h-6" />
+                  <motion.div
+                    animate={{ rotate: generationRequest.description.trim() ? 360 : 0 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <Zap className="w-6 h-6" />
+                  </motion.div>
                   Generate Component
                 </motion.button>
               </motion.div>
@@ -432,28 +519,59 @@ ${complexity >= 3 ? `
             {currentStep === 'generating' && (
               <motion.div
                 key="generating"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="bg-white rounded-xl border border-gray-200 p-12 shadow-sm text-center"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="card p-12 text-center gradient-border animate-glow"
               >
                 <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center"
+                  animate={{ 
+                    rotate: 360,
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ 
+                    rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+                    scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
+                  }}
+                  className="w-20 h-20 mx-auto mb-6 gradient-bg-cyber rounded-2xl flex items-center justify-center shadow-2xl"
                 >
-                  <Wand2 className="w-8 h-8 text-white" />
+                  <Wand2 className="w-10 h-10 text-white" />
                 </motion.div>
-                <h3 className="text-xl font-semibold mb-2">Generating Your Component</h3>
-                <p className="text-gray-600 mb-6">Our AI is crafting the perfect component for you...</p>
-                <div className="w-64 mx-auto bg-gray-200 rounded-full h-2">
+                <motion.h3 
+                  className="text-2xl font-bold text-white mb-3 font-mono"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  Generating Your Component
+                </motion.h3>
+                <p className="text-gray-400 mb-8">Our AI is crafting the perfect component for you...</p>
+                <div className="w-80 mx-auto bg-gray-700 rounded-full h-3 overflow-hidden">
                   <motion.div
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+                    className="gradient-bg-aurora h-3 rounded-full animate-gradient-shift"
                     initial={{ width: 0 }}
                     animate={{ width: "100%" }}
-                    transition={{ duration: 2 }}
+                    transition={{ duration: 2, ease: "easeInOut" }}
                   />
                 </div>
+                <motion.div
+                  className="mt-6 flex justify-center space-x-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1 }}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-2 h-2 bg-primary rounded-full"
+                      animate={{ scale: [1, 1.5, 1] }}
+                      transition={{ 
+                        duration: 0.8, 
+                        repeat: Infinity, 
+                        delay: i * 0.2 
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
             )}
 
@@ -466,29 +584,29 @@ ${complexity >= 3 ? `
                 className="space-y-6"
               >
                 {/* Result Header */}
-                <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                <div className="card border-green-500/20 bg-green-500/5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                       <Code className="w-4 h-4 text-white" />
                     </div>
-                    <h3 className="text-lg font-semibold text-green-800">Component Generated Successfully!</h3>
+                    <h3 className="text-lg font-semibold text-green-400">Component Generated Successfully!</h3>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-green-600 font-medium">Model:</span>
-                      <p className="text-green-800">{generationResult.modelUsed}</p>
+                      <span className="text-green-400 font-medium font-mono">Model:</span>
+                      <p className="text-gray-300 font-mono">{generationResult.modelUsed}</p>
                     </div>
                     <div>
-                      <span className="text-green-600 font-medium">Cost:</span>
-                      <p className="text-green-800">${generationResult.estimatedCost.toFixed(6)}</p>
+                      <span className="text-green-400 font-medium font-mono">Cost:</span>
+                      <p className="text-gray-300 font-mono">${generationResult.estimatedCost.toFixed(6)}</p>
                     </div>
                     <div>
-                      <span className="text-green-600 font-medium">Time:</span>
-                      <p className="text-green-800">{generationResult.generationTime.toFixed(1)}s</p>
+                      <span className="text-green-400 font-medium font-mono">Time:</span>
+                      <p className="text-gray-300 font-mono">{generationResult.generationTime.toFixed(1)}s</p>
                     </div>
                     <div>
-                      <span className="text-green-600 font-medium">Type:</span>
-                      <p className="text-green-800">{generationResult.componentType}</p>
+                      <span className="text-green-400 font-medium font-mono">Type:</span>
+                      <p className="text-gray-300 font-mono">{generationResult.componentType}</p>
                     </div>
                   </div>
                 </div>
@@ -511,15 +629,15 @@ ${complexity >= 3 ? `
 
                 {/* Suggestions */}
                 {generationResult.suggestions && generationResult.suggestions.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                  <div className="card border-primary/20 bg-primary/5">
                     <div className="flex items-center gap-3 mb-4">
-                      <HelpCircle className="w-5 h-5 text-blue-500" />
-                      <h4 className="font-semibold text-blue-800">Suggestions</h4>
+                      <HelpCircle className="w-5 h-5 text-primary" />
+                      <h4 className="font-semibold text-primary">Suggestions</h4>
                     </div>
                     <ul className="space-y-2">
                       {generationResult.suggestions.map((suggestion, index) => (
-                        <li key={index} className="flex items-start gap-2 text-blue-700">
-                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                        <li key={index} className="flex items-start gap-2 text-gray-300">
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                           {suggestion}
                         </li>
                       ))}
@@ -533,7 +651,7 @@ ${complexity >= 3 ? `
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setCurrentStep('input')}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                    className="btn btn-primary flex-1 py-3 px-6 flex items-center justify-center gap-2"
                   >
                     <Wand2 className="w-5 h-5" />
                     Generate Another
@@ -542,7 +660,7 @@ ${complexity >= 3 ? `
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigator.clipboard.writeText(generationResult.componentCode)}
-                    className="px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-xl font-semibold transition-all flex items-center gap-2"
+                    className="btn btn-secondary px-6 py-3 flex items-center gap-2"
                   >
                     <Copy className="w-5 h-5" />
                     Copy Code
@@ -556,40 +674,55 @@ ${complexity >= 3 ? `
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Cost Estimator */}
-          <CostEstimator
-            description={generationRequest.description}
-            componentType={generationRequest.componentType}
-            complexity={generationRequest.complexity}
-            onCostUpdate={setEstimatedCost}
-          />
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <CostEstimator
+              description={generationRequest.description}
+              componentType={generationRequest.componentType}
+              complexity={generationRequest.complexity}
+              onCostUpdate={setEstimatedCost}
+            />
+          </motion.div>
 
           {/* Tips */}
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl border border-purple-200 p-6">
+          <motion.div 
+            className="card border-primary/20 hover-lift gradient-border"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.8 }}
+          >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+              <motion.div 
+                className="w-8 h-8 gradient-bg-aurora rounded-lg flex items-center justify-center"
+                whileHover={{ rotate: 180, scale: 1.1 }}
+                transition={{ duration: 0.3 }}
+              >
                 <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <h4 className="font-semibold text-gray-800">Pro Tips</h4>
+              </motion.div>
+              <h4 className="font-semibold text-white font-mono">Pro Tips</h4>
             </div>
-            <ul className="space-y-3 text-sm text-gray-600">
+            <ul className="space-y-3 text-sm text-gray-400">
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                 Be specific about styling and behavior you want
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                 Mention responsive design requirements
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                 Include accessibility considerations
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                 Higher complexity = more features and interactivity
               </li>
             </ul>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
