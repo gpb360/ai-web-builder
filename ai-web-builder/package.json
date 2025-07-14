@@ -9,7 +9,7 @@
     "dev:backend": "cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
     "build": "pnpm build:shared && pnpm build:frontend && pnpm build:backend",
     "build:shared": "pnpm --filter shared build",
-    "build:frontend": "pnpm --filter frontend build", 
+    "build:frontend": "pnpm --filter frontend build",
     "build:backend": "cd backend && pip install -r requirements.txt",
     "lint": "pnpm --filter frontend lint",
     "type-check": "pnpm --filter frontend type-check && pnpm --filter shared type-check",
@@ -17,5 +17,10 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@executeautomation/playwright-mcp-server": "^1.0.6",
+    "playwright": "^1.54.1",
+    "puppeteer": "^24.12.1"
   }
 }

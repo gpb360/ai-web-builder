@@ -1,41 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark theme inspired by augmentcode.com */
-  --background: #10161A;
+  /* True augmentcode.com inspired dark theme */
+  --background: #0a0a0a;
+  --background-secondary: #141414;
+  --background-tertiary: #1a1a1a;
+  --background-card: #111111;
   --foreground: #ffffff;
-  --background-secondary: #1A2329;
-  --background-tertiary: #252D34;
+  --foreground-muted: #a0a0a0;
+  --foreground-subtle: #6b7280;
   
-  /* Gradient accents */
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-secondary: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-  --gradient-accent: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #a8edea 100%);
-  --gradient-purple-blue: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%);
-  --gradient-blue-purple: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-  --gradient-cyber: linear-gradient(135deg, #00D4FF 0%, #5A67D8 50%, #B794F6 100%);
-  --gradient-aurora: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
-  --gradient-tech: linear-gradient(135deg, #1E40AF 0%, #3730A3 25%, #5B21B6 50%, #7C3AED 75%, #8B5CF6 100%);
+  /* Minimal accent colors - very muted */
+  --accent-primary: #3b82f6;
+  --accent-secondary: #10b981;
+  --accent-muted: #374151;
+  --border-color: #2a2a2a;
+  --border-subtle: #1f1f1f;
   
-  /* Brand colors */
-  --color-primary: #B3BAFF;
-  --color-secondary: #667eea;
-  --color-accent: #764ba2;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
+  /* Remove all bright gradients - keep minimal */
+  --gradient-subtle: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+  --gradient-card: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  
+  /* Professional status colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
   --color-error: #ef4444;
   
-  /* Neutral colors */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
+  /* Neutral colors - muted and professional */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
   
   /* Typography */
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -57,14 +58,15 @@
 }
 
 @theme inline {
-  /* Tailwind CSS custom theme integration */
+  /* Minimal professional theme integration */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-background-secondary: var(--background-secondary);
   --color-background-tertiary: var(--background-tertiary);
-  --color-primary: var(--color-primary);
-  --color-secondary: var(--color-secondary);
-  --color-accent: var(--color-accent);
+  --color-background-card: var(--background-card);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-accent-primary: var(--accent-primary);
+  --color-border: var(--border-color);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
@@ -123,63 +125,17 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--color-gray-500);
 }
 
-/* Custom utilities */
-.gradient-bg {
-  background: var(--gradient-primary);
+/* Professional utilities - minimal and clean */
+.card-bg {
+  background: var(--gradient-card);
 }
 
-.gradient-bg-purple-blue {
-  background: var(--gradient-purple-blue);
+.subtle-border {
+  border: 1px solid var(--border-subtle);
 }
 
-.gradient-bg-cyber {
-  background: var(--gradient-cyber);
-}
-
-.gradient-bg-aurora {
-  background: var(--gradient-aurora);
-}
-
-.gradient-bg-tech {
-  background: var(--gradient-tech);
-}
-
-.gradient-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-text-cyber {
-  background: var(--gradient-cyber);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-text-aurora {
-  background: var(--gradient-aurora);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-border {
-  position: relative;
-  background: var(--background-secondary);
-  border-radius: var(--radius-lg);
-}
-
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  background: var(--gradient-primary);
-  border-radius: inherit;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: xor;
+.professional-border {
+  border: 1px solid var(--border-color);
 }
 
 .glass-morphism {
@@ -189,18 +145,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card {
-  background: var(--background-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-lg);
+  background: var(--background-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
   padding: 1.5rem;
-  box-shadow: var(--shadow-lg);
   transition: all 0.2s ease-in-out;
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
-  border-color: var(--color-primary);
+  border-color: var(--accent-primary);
 }
 
 .btn {
@@ -219,36 +172,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary {
-  background: var(--gradient-primary);
+  background: var(--accent-primary);
   color: white;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--accent-primary);
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+  background: #2563eb;
+  border-color: #2563eb;
 }
 
 .btn-secondary {
   background: var(--background-secondary);
   color: var(--foreground);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
   background: var(--background-tertiary);
-  border-color: var(--color-primary);
+  border-color: var(--accent-primary);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-gray-300);
+  color: var(--foreground-muted);
   border: 1px solid transparent;
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--background-secondary);
   color: var(--foreground);
+  border-color: var(--border-color);
 }
 
 /* Animation keyframes */
