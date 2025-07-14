@@ -81,6 +81,105 @@ ai-web-builder/
 4. **Security:** Input validation, SQL injection prevention, secure secrets
 5. **Testing:** Unit tests for all utilities, integration tests for APIs
 
+## Git Workflow - MANDATORY PROCESS
+
+### **🚫 NEVER WORK DIRECTLY ON MAIN BRANCH**
+- **Always create feature branches** for any work
+- **Never commit directly to main** - all changes must go through Pull Requests
+- **All code must be reviewed** before merging to main
+
+### **Required Git Workflow Steps:**
+
+1. **Create Feature Branch:**
+   ```bash
+   git checkout -b feature/feature-name
+   # Example: git checkout -b feature/add-user-auth
+   # Example: git checkout -b fix/hydration-errors
+   # Example: git checkout -b enhancement/improve-performance
+   ```
+
+2. **Work on Feature:**
+   ```bash
+   # Make your changes
+   git add .
+   git commit -m "descriptive commit message"
+   ```
+
+3. **Push to Remote:**
+   ```bash
+   git push origin feature/feature-name
+   ```
+
+4. **Create Pull Request:**
+   ```bash
+   # Use GitHub CLI or web interface
+   gh pr create --title "Feature: Add user authentication" --body "Description of changes"
+   ```
+
+5. **After PR Review & Approval:**
+   ```bash
+   # Merge through GitHub interface, then clean up
+   git checkout main
+   git pull origin main
+   git branch -d feature/feature-name
+   ```
+
+### **Branch Naming Conventions:**
+- `feature/description` - New features
+- `fix/description` - Bug fixes  
+- `enhancement/description` - Improvements to existing features
+- `refactor/description` - Code refactoring
+- `docs/description` - Documentation updates
+
+### **Commit Message Format:**
+```
+type: Brief description of change
+
+- Detailed explanation of what was changed
+- Why the change was necessary
+- Any breaking changes or important notes
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### **PR Requirements:**
+- **Clear title and description** of what was changed
+- **Link to related issues** if applicable
+- **Test results** - confirm all tests pass
+- **Screenshots** for UI changes
+- **Breaking changes** clearly documented
+
+### **Example Workflow:**
+```bash
+# Start new feature
+git checkout main
+git pull origin main
+git checkout -b feature/add-pricing-page
+
+# Work on feature
+# ... make changes ...
+git add .
+git commit -m "feat: Add pricing page with 3-tier structure"
+
+# Push and create PR
+git push origin feature/add-pricing-page
+gh pr create --title "Feature: Add pricing page" --body "Adds 3-tier pricing structure with monthly/annual options"
+
+# After approval and merge
+git checkout main
+git pull origin main
+git branch -d feature/add-pricing-page
+```
+
+### **🔥 CRITICAL RULES:**
+1. **NO DIRECT COMMITS TO MAIN** - Automatic rejection
+2. **ALL FEATURES REQUIRE PR REVIEW** - No exceptions
+3. **PUSH EARLY AND OFTEN** - Don't wait until feature is complete
+4. **KEEP BRANCHES SMALL** - 1 feature per branch maximum
+5. **DELETE BRANCHES AFTER MERGE** - Keep repository clean
+
 ### AI Integration Standards
 1. **Cost Awareness:** Track and optimize every AI API call
 2. **Fallback Systems:** Multiple model support for reliability
@@ -193,22 +292,43 @@ ai-web-builder/
 
 ## Common Tasks & Commands
 
+### Git Workflow (ALWAYS FOLLOW)
+```bash
+# Start new feature (REQUIRED)
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
+
+# Work and commit frequently
+git add .
+git commit -m "descriptive message"
+
+# Push and create PR (REQUIRED)
+git push origin feature/your-feature-name
+gh pr create --title "Feature: Description" --body "Details"
+
+# After PR approval
+git checkout main
+git pull origin main
+git branch -d feature/your-feature-name
+```
+
 ### Development Setup
 ```bash
 # Start development environment
-npm run dev
+pnpm dev
 
 # Run backend API
 cd backend && uvicorn main:app --reload
 
 # Run tests
-npm test
+pnpm test
 
 # Check AI costs
-npm run cost-check
+pnpm run cost-check
 
 # Deploy to staging
-npm run deploy:staging
+pnpm run deploy:staging
 ```
 
 ### AI Development
@@ -224,6 +344,12 @@ npm run deploy:staging
 - **Handle** authentication renewal automatically
 - **Parse** data into standardized formats
 - **Test** with multiple account types
+
+### 🚨 CRITICAL REMINDERS
+- **NEVER COMMIT DIRECTLY TO MAIN** - Always use feature branches
+- **ALWAYS CREATE PULL REQUESTS** - No exceptions for any changes
+- **PUSH EARLY AND OFTEN** - Don't wait until feature is complete
+- **TEST BEFORE PUSHING** - Ensure builds pass before creating PR
 
 ## When to Ask for Help
 
